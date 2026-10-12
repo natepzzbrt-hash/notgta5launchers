@@ -1,0 +1,1475 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NOT GTA 5 — Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#010603;
+    --g:#00ff66;
+    --g2:#00cc52;
+    --dim:#0b5a2a;
+    --amber:#ffb000;
+    --red:#ff2a4d;
+    --cyan:#33ffee;
+    --panel:rgba(0,18,8,.78);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg);color:var(--g);
+    font-family:"JetBrains Mono",ui-monospace,Consolas,monospace;
+    overflow-x:hidden;min-height:100vh;
+    text-shadow:0 0 6px rgba(0,255,102,.55);
+    cursor:none;
+  }
+  a,button,label{cursor:none}
+  canvas#bgimg{position:fixed;inset:0;width:100%;height:100%;z-index:0;opacity:.3;image-rendering:pixelated}
+  canvas#rain{position:fixed;inset:0;width:100%;height:100%;z-index:0;opacity:.6;mix-blend-mode:screen}
+
+  /* ===== surveillance grid ===== */
+  .grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:6px}
+  @media (max-width:640px){.grid4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  .mini{position:relative;aspect-ratio:16/10;overflow:hidden;background:#000;border:1px solid var(--dim);transition:border-color .2s,transform .2s}
+  .mini:hover{border-color:var(--g);transform:scale(1.03);z-index:2;box-shadow:0 0 18px -4px var(--g)}
+  .mini canvas{display:block;width:100%;height:100%}
+  .mini .ml{position:absolute;left:5px;bottom:4px;right:5px;font-size:9px;color:#eaffef;text-shadow:0 0 4px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mini .mrec{position:absolute;right:5px;top:3px;font-size:9px;color:var(--red);text-shadow:0 0 6px var(--red)}
+  .mini .mh{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:VT323,monospace;font-size:22px;
+    color:var(--red);text-shadow:0 0 10px var(--red),-2px 0 var(--cyan);opacity:0;pointer-events:none}
+  .mini .mh.on{opacity:1;animation:blink .15s steps(1) infinite}
+
+  /* ===== news ticker ===== */
+  .ticker{position:fixed;left:0;right:0;bottom:0;z-index:38;height:30px;display:flex;align-items:center;overflow:hidden;
+    background:rgba(0,0,0,.88);border-top:1px solid var(--g2);font-size:12px}
+  .ticker .tl{flex:none;height:100%;display:flex;align-items:center;padding:0 12px;background:var(--red);color:#fff;
+    font-weight:800;letter-spacing:.15em;text-shadow:none;font-size:11px}
+  .ticker .tm{overflow:hidden;flex:1;white-space:nowrap}
+  .ticker #tk{display:inline-block;padding-left:20px;animation:marquee 60s linear infinite}
+  @keyframes marquee{to{transform:translateX(-50%)}}
+
+  /* ===== CRT ===== */
+  .crt::before{content:"";position:fixed;inset:0;z-index:40;pointer-events:none;
+    background:repeating-linear-gradient(180deg,rgba(0,0,0,.3) 0 1px,transparent 1px 3px)}
+  .crt::after{content:"";position:fixed;inset:0;z-index:41;pointer-events:none;
+    background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,.9) 100%);
+    animation:flicker 5s infinite}
+  @keyframes flicker{0%,100%{opacity:1}47%{opacity:1}48%{opacity:.75}49%{opacity:1}72%{opacity:.92}73%{opacity:1}}
+  .sweep{position:fixed;left:0;right:0;height:160px;z-index:39;pointer-events:none;
+    background:linear-gradient(180deg,transparent,rgba(0,255,102,.07),transparent);
+    animation:sweep 6s linear infinite}
+  @keyframes sweep{from{top:-160px}to{top:100%}}
+
+  /* ===== crosshair cursor ===== */
+  #xh{position:fixed;z-index:60;pointer-events:none;width:34px;height:34px;margin:-17px 0 0 -17px;
+    border:1px solid var(--g);border-radius:50%;box-shadow:0 0 12px var(--g);transition:width .2s,height .2s,margin .2s,border-color .2s}
+  #xh::before,#xh::after{content:"";position:absolute;background:var(--g);box-shadow:0 0 6px var(--g)}
+  #xh::before{left:50%;top:-8px;bottom:-8px;width:1px}
+  #xh::after{top:50%;left:-8px;right:-8px;height:1px}
+  #xh.hot{width:54px;height:54px;margin:-27px 0 0 -27px;border-color:var(--red);animation:spin 2s linear infinite}
+  #xh.hot::before,#xh.hot::after{background:var(--red)}
+  #xhLabel{position:fixed;z-index:60;pointer-events:none;font-size:10px;color:var(--g2);transform:translate(22px,14px);white-space:nowrap}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (hover:none){#xh,#xhLabel{display:none}body,a,button,label{cursor:auto}}
+
+  /* ===== jack-in gate ===== */
+  #gate{position:fixed;inset:0;z-index:50;background:#000;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:24px;padding:16px;text-align:center;transition:opacity .5s}
+  #gate.gone{opacity:0;pointer-events:none}
+  #gateCv{position:absolute;inset:0;width:100%;height:100%;opacity:.35;image-rendering:pixelated}
+  #gate > :not(canvas){position:relative}
+  #gate .skull{font-size:clamp(5px,1.3vw,11px);line-height:1.05;white-space:pre;color:var(--g);text-shadow:0 0 10px var(--g);animation:pulse 2s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.55;text-shadow:0 0 22px var(--g)}}
+  #gate .press{font-family:VT323,monospace;font-size:clamp(24px,4vw,40px);letter-spacing:.15em;animation:blink 1.1s steps(1) infinite}
+  #gate small{color:var(--g2);font-size:11px;letter-spacing:.3em}
+
+  /* ===== perf: low-FX mode ===== */
+  body.lowfx .sweep,body.lowfx #bgimg{display:none}
+  body.lowfx canvas#rain{mix-blend-mode:normal;opacity:.4}
+  body.lowfx,body.lowfx *{text-shadow:none!important}
+  body.lowfx.crt::after{animation:none}
+  body.lowfx .opt::after,body.lowfx .opt:hover::before,body.lowfx .opt.recd{animation:none}
+  .fxb{font:inherit;font-size:11px;background:transparent;border:1px solid var(--g2);color:var(--g);padding:1px 8px;letter-spacing:.1em}
+  .fxb:hover{background:var(--g);color:#000;text-shadow:none}
+  body.god .wrap{animation:hue 1.2s linear infinite}
+  @keyframes hue{to{filter:hue-rotate(360deg)}}
+
+  /* ===== interactive prompt ===== */
+  .prompt{display:none;align-items:center;padding:0 16px 14px;font-size:13px}
+  .prompt.on{display:flex}
+  .prompt input{flex:1;min-width:0;margin-left:6px;background:transparent;border:0;outline:0;color:#d6ffe4;font:inherit;caret-color:var(--g);text-shadow:inherit}
+  #log .out{color:#d6ffe4}
+
+  /* ===== NOT-OS boot ===== */
+  #os{position:fixed;inset:0;z-index:49;background:#000;display:none;padding:18px 20px 44px;font-size:13px;line-height:1.5;overflow:hidden}
+  #os.on{display:block}
+  #os.off{animation:crtOff .45s forwards}
+  @keyframes crtOff{0%{transform:none;filter:none}60%{transform:scale(1,.004);filter:brightness(4)}100%{transform:scale(0,.004);filter:brightness(6);opacity:0}}
+  #osOut{height:100%;overflow:hidden;white-space:pre-wrap;word-break:break-word}
+  #os .w{color:#fff;text-shadow:0 0 6px #fff}
+  #os .dim{color:var(--g2);opacity:.7}
+  #os .ok{color:var(--g)}
+  #os .am{color:var(--amber);text-shadow:0 0 6px var(--amber)}
+  #os .rd{color:var(--red);text-shadow:0 0 6px var(--red)}
+  #os .cy{color:var(--cyan);text-shadow:0 0 6px var(--cyan)}
+  #os .hdr{color:var(--cyan);text-shadow:0 0 8px var(--cyan);letter-spacing:.1em;margin:4px 0}
+  #os .fw{border:1px solid var(--g2);max-width:760px;margin:4px 0;font-size:12px}
+  #os .fh,#os .fr{display:grid;grid-template-columns:52px 110px minmax(0,1fr) 190px;gap:8px;padding:3px 10px}
+  #os .fh{color:var(--g2);border-bottom:1px solid var(--dim);background:rgba(0,255,102,.06)}
+  #os .fr span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #os .fr.flip{animation:rowFlip .3s steps(3);background:rgba(0,255,102,.07)}
+  @keyframes rowFlip{0%{transform:translateX(-6px);filter:hue-rotate(90deg)}50%{transform:translateX(6px)}100%{transform:none}}
+  #os .st s{color:var(--red);opacity:.7}
+  #os .st b{color:var(--g);text-shadow:0 0 8px var(--g)}
+  @media (max-width:640px){#os{font-size:11px}#os .fh,#os .fr{grid-template-columns:40px 80px minmax(0,1fr) 120px;padding:3px 6px}}
+  #osBanner{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+    text-align:center;padding:16px;background:rgba(0,0,0,.72)}
+  #osBanner.on{display:flex}
+  #osBanner div{font-family:VT323,monospace;font-size:clamp(34px,7vw,92px);line-height:1;letter-spacing:.06em;
+    padding:6px 22px;border:2px solid currentColor;animation:bannerIn .4s cubic-bezier(.2,1.6,.4,1)}
+  #osBanner div + div{animation-delay:.25s;animation-fill-mode:both}
+  #osBanner small{font-size:13px;letter-spacing:.25em;margin-top:6px}
+  #osBanner.deny{color:var(--red);text-shadow:0 0 24px var(--red),-4px 0 var(--cyan)}
+  #osBanner.deny div{animation:blink .2s steps(1) infinite;background:rgba(255,42,77,.12)}
+  #osBanner.grant{color:var(--g);text-shadow:0 0 24px var(--g),-3px 0 var(--red),3px 0 var(--cyan)}
+  #osBanner.grant div{background:rgba(0,255,102,.08)}
+  @keyframes bannerIn{from{transform:scale(2.2);opacity:0;filter:blur(10px)}to{transform:none;opacity:1;filter:none}}
+  #osSkip{position:absolute;right:16px;bottom:12px;font-size:11px;color:var(--g2);letter-spacing:.2em;opacity:.8;border:1px solid var(--dim);padding:3px 8px}
+  #osSkip:hover{color:var(--g);border-color:var(--g)}
+  pre.osLogo{font-family:"JetBrains Mono",monospace;font-weight:800;font-size:clamp(6px,1.4vw,14px);line-height:1.05;white-space:pre;
+    color:var(--g);text-shadow:0 0 10px var(--g),0 0 30px rgba(0,255,102,.5);margin:6px 0 14px;animation:pulse 2s ease-in-out infinite}
+  .wrap.poweron{animation:crtOn .8s cubic-bezier(.2,.8,.2,1)}
+  @keyframes crtOn{0%{transform:scale(.6,.003);filter:brightness(6)}35%{transform:scale(1,.003);filter:brightness(4)}100%{transform:none;filter:none}}
+
+  /* ===== layout ===== */
+  .wrap{position:relative;z-index:2;display:grid;grid-template-columns:230px minmax(0,1fr) 230px;gap:18px;
+    max-width:1480px;margin:0 auto;padding:22px 16px 64px;min-height:100vh;align-items:start}
+  @media (max-width:1150px){.wrap{grid-template-columns:1fr}.side{display:none!important}}
+  main{display:flex;flex-direction:column;gap:20px;padding-top:6px;min-width:0}
+
+  .box{border:1px solid var(--dim);background:var(--panel);position:relative;min-width:0}
+  .box::before,.box::after{content:"";position:absolute;width:10px;height:10px;border:2px solid var(--g);z-index:3}
+  .box::before{top:-2px;left:-2px;border-right:0;border-bottom:0}
+  .box::after{bottom:-2px;right:-2px;border-left:0;border-top:0}
+  .bh{font-size:10px;letter-spacing:.25em;color:var(--g2);padding:7px 10px;border-bottom:1px solid var(--dim);
+    display:flex;justify-content:space-between;gap:8px;background:rgba(0,255,102,.04)}
+  .bh b{color:var(--red);animation:blink 1s steps(1) infinite;font-weight:400}
+
+  .side{display:flex;flex-direction:column;gap:18px;position:sticky;top:22px}
+  #globe{display:block;width:100%;aspect-ratio:1}
+  .kv{font-size:11px;padding:8px 10px;line-height:1.8}
+  .kv div{display:flex;justify-content:space-between;border-bottom:1px dashed rgba(0,204,82,.2)}
+  .kv span:last-child{color:var(--cyan);text-shadow:0 0 6px var(--cyan)}
+  #hex{font-size:10.5px;line-height:1.45;padding:8px 10px;height:300px;overflow:hidden;color:var(--g2);white-space:pre}
+  #hex .hi{color:#d6ffe4;background:rgba(0,255,102,.2)}
+  .bars{display:flex;align-items:flex-end;gap:3px;height:70px;padding:8px 10px}
+  .bars i{flex:1;background:linear-gradient(0deg,var(--g2),var(--g));box-shadow:0 0 6px var(--g);transition:height .35s}
+  #radar{display:block;width:100%;aspect-ratio:1}
+
+  /* ===== status bar ===== */
+  .bar{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:space-between;align-items:center;
+    font-size:12px;color:var(--g2);padding:8px 12px}
+  .bar b{color:var(--g)}
+  .warn{color:var(--red);text-shadow:0 0 8px var(--red);animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  /* ===== logo ===== */
+  .logoWrap{position:relative;text-align:center}
+  pre.logo{
+    display:inline-block;font-family:"JetBrains Mono",monospace;font-weight:800;
+    font-size:clamp(5px,1.2vw,13px);line-height:1.05;white-space:pre;
+    color:var(--g);text-shadow:0 0 10px var(--g),0 0 30px rgba(0,255,102,.6);position:relative;
+  }
+  pre.logo.r,pre.logo.c{position:absolute;left:50%;top:0;transform:translateX(-50%);opacity:0;mix-blend-mode:screen}
+  pre.logo.r{color:var(--red);text-shadow:none}
+  pre.logo.c{color:var(--cyan);text-shadow:none}
+  .logoWrap.glitch pre.r{opacity:.9;transform:translate(calc(-50% - 5px),2px);clip-path:inset(10% 0 55% 0)}
+  .logoWrap.glitch pre.c{opacity:.9;transform:translate(calc(-50% + 5px),-2px);clip-path:inset(50% 0 10% 0)}
+  .logoWrap.glitch pre.main{transform:skewX(-6deg)}
+  .subtitle{font-family:VT323,monospace;font-size:clamp(18px,2.4vw,26px);letter-spacing:.35em;color:var(--g2);margin-top:8px}
+
+  /* ===== duo panels ===== */
+  .duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:18px}
+
+  /* --- rig scan --- */
+  .rig-top{display:flex;align-items:center;gap:16px;padding:14px 12px 6px}
+  .gauge{position:relative;width:118px;height:118px;flex:none}
+  .gauge svg{width:100%;height:100%;transform:rotate(-90deg)}
+  .gauge circle{fill:none;stroke-width:8}
+  .gauge .trk{stroke:rgba(0,255,102,.12)}
+  .gauge .val{stroke:var(--gc,var(--g));stroke-linecap:butt;stroke-dasharray:0 1000;
+    filter:drop-shadow(0 0 6px var(--gc,var(--g)));transition:stroke-dasharray 1.4s cubic-bezier(.2,.9,.3,1),stroke .4s}
+  .gauge .tick{stroke:rgba(0,255,102,.35);stroke-width:8;stroke-dasharray:1 9.4}
+  .gauge .num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .gauge .num b{font-family:VT323,monospace;font-weight:400;font-size:46px;line-height:.85;color:var(--gc,var(--g));text-shadow:0 0 14px var(--gc,var(--g))}
+  .gauge .num small{font-size:10px;letter-spacing:.2em;color:var(--g2)}
+  .verdict{min-width:0}
+  .verdict .grade{font-family:VT323,monospace;font-size:64px;line-height:.8;color:var(--gc,var(--g));text-shadow:0 0 18px var(--gc,var(--g))}
+  .verdict .tier{font-weight:800;font-size:14px;letter-spacing:.12em;margin-top:4px;color:var(--gc,var(--g))}
+  .verdict .rec{font-size:11px;color:var(--g2);margin-top:6px;line-height:1.5}
+  .verdict .rec b{color:var(--cyan)}
+  .specs{padding:4px 12px 12px;font-size:11.5px}
+  .spec{display:grid;grid-template-columns:76px minmax(0,1fr) 34px;gap:8px;align-items:center;padding:5px 0;
+    border-bottom:1px dashed rgba(0,204,82,.18);opacity:0;transform:translateX(-8px);transition:opacity .3s,transform .3s}
+  .spec.in{opacity:1;transform:none}
+  .spec .k{color:var(--g2);letter-spacing:.1em;font-size:10.5px}
+  .spec .v{color:#d6ffe4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .spec .s{text-align:right;font-weight:800;color:var(--sc,var(--g))}
+  .spec .m{grid-column:2/4;height:3px;background:rgba(0,255,102,.1);position:relative;margin-top:-1px}
+  .spec .m i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--sc,var(--g));box-shadow:0 0 8px var(--sc,var(--g));transition:width .9s cubic-bezier(.2,.9,.3,1)}
+
+  /* --- cctv --- */
+  .cam{position:relative;aspect-ratio:16/10;overflow:hidden;background:#000}
+  #camCv{display:block;width:100%;height:100%}
+  .cam .hud{position:absolute;inset:0;pointer-events:none;padding:10px 12px;font-size:11px;color:#eaffef;
+    text-shadow:0 0 4px #000,0 0 6px var(--g);display:flex;flex-direction:column;justify-content:space-between}
+  .hud .row{display:flex;justify-content:space-between;gap:8px}
+  .rec{color:var(--red);text-shadow:0 0 8px var(--red)}
+  .rec::before{content:"● ";animation:blink 1s steps(1) infinite}
+  .cam .corner{position:absolute;width:22px;height:22px;border:2px solid rgba(255,255,255,.7)}
+  .cam .c1{top:8px;left:8px;border-right:0;border-bottom:0}.cam .c2{top:8px;right:8px;border-left:0;border-bottom:0}
+  .cam .c3{bottom:8px;left:8px;border-right:0;border-top:0}.cam .c4{bottom:8px;right:8px;border-left:0;border-top:0}
+  .cam .reticle{position:absolute;left:50%;top:50%;width:60px;height:60px;margin:-30px;border:1px dashed rgba(255,255,255,.5);border-radius:50%}
+  .cam .reticle::before,.cam .reticle::after{content:"";position:absolute;background:rgba(255,255,255,.5)}
+  .cam .reticle::before{left:50%;top:-10px;bottom:-10px;width:1px}.cam .reticle::after{top:50%;left:-10px;right:-10px;height:1px}
+  #hijack{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;
+    font-family:VT323,monospace;font-size:clamp(26px,4vw,42px);letter-spacing:.12em;color:var(--red);
+    text-shadow:0 0 16px var(--red),-3px 0 var(--cyan);opacity:0;background:rgba(40,0,8,.25)}
+  #hijack.on{opacity:1;animation:blink .18s steps(1) infinite}
+  .camfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;font-size:10.5px;color:var(--g2);border-top:1px solid var(--dim)}
+  .camfoot .dots{display:flex;gap:5px}
+  .camfoot .dots i{width:8px;height:8px;border:1px solid var(--g2)}
+  .camfoot .dots i.on{background:var(--g);box-shadow:0 0 8px var(--g)}
+  .upl{border:1px solid var(--g2);padding:3px 8px;color:var(--g);font:inherit;background:transparent;letter-spacing:.1em}
+  .upl:hover{background:var(--g);color:#000;text-shadow:none}
+  .cam.drag{outline:2px dashed var(--cyan);outline-offset:-6px}
+
+  /* ===== terminal ===== */
+  .term-h{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--dim);
+    font-size:12px;color:var(--g2);background:rgba(0,255,102,.05)}
+  .term-h i{width:10px;height:10px;border:1px solid var(--g2);display:inline-block}
+  .term-h span{margin-left:auto}
+  #log{padding:14px 16px;font-size:13px;line-height:1.65;min-height:230px;white-space:pre-wrap;word-break:break-word}
+  #log .ok{color:var(--g)} #log .dim{color:var(--g2);opacity:.75}
+  #log .am{color:var(--amber);text-shadow:0 0 6px var(--amber)}
+  #log .rd{color:var(--red);text-shadow:0 0 6px var(--red)}
+  #log .cy{color:var(--cyan);text-shadow:0 0 6px var(--cyan)}
+  .cursor{display:inline-block;width:.6em;height:1.1em;background:var(--g);vertical-align:-2px;
+    box-shadow:0 0 8px var(--g);animation:blink 1s steps(1) infinite}
+
+  /* ===== options ===== */
+  .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:18px;
+    opacity:0;transform:translateY(16px) scale(.98);transition:opacity .6s,transform .6s cubic-bezier(.2,1.4,.4,1)}
+  .opts.show{opacity:1;transform:none}
+  .opt{
+    --c:var(--g);
+    position:relative;display:block;text-decoration:none;color:var(--c);
+    border:1px solid var(--c);background:var(--panel);padding:18px 18px 16px;
+    transition:box-shadow .25s,background .25s,transform .2s;
+    overflow:hidden;
+    clip-path:polygon(0 0,calc(100% - 22px) 0,100% 22px,100% 100%,22px 100%,0 calc(100% - 22px));
+  }
+  .opt:nth-child(2){--c:var(--cyan)}
+  .opt:hover,.opt:focus-visible{background:color-mix(in srgb,var(--c) 12%,rgba(0,15,6,.88));
+    box-shadow:0 0 40px -4px var(--c),inset 0 0 40px color-mix(in srgb,var(--c) 18%,transparent);outline:none}
+  .opt::before{content:"";position:absolute;left:0;right:0;height:2px;top:-4px;background:var(--c);
+    box-shadow:0 0 16px 2px var(--c);opacity:0;z-index:2}
+  .opt:hover::before{opacity:1;animation:scan 1.2s linear infinite}
+  @keyframes scan{from{top:-4px}to{top:100%}}
+  .opt::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .3s;
+    background:repeating-linear-gradient(90deg,transparent 0 22px,color-mix(in srgb,var(--c) 10%,transparent) 22px 24px);
+    animation:stripes 1s linear infinite}
+  .opt:hover::after{opacity:1}
+  @keyframes stripes{to{background-position:24px 0}}
+  .opt.recd{box-shadow:0 0 34px -6px var(--c);animation:recPulse 1.6s ease-in-out infinite}
+  @keyframes recPulse{50%{box-shadow:0 0 60px -2px var(--c)}}
+  .recTag{display:none;margin:-4px 0 10px;font-size:10.5px;font-weight:800;letter-spacing:.18em;
+    background:var(--c);color:#010603;text-shadow:none;padding:4px 8px;width:max-content;max-width:100%}
+  .opt.recd .recTag{display:block}
+  .opt .id{font-size:11px;letter-spacing:.2em;opacity:.8;display:flex;justify-content:space-between}
+  .opt h2{font-family:VT323,monospace;font-weight:400;font-size:46px;line-height:1;margin:8px 0 6px;
+    text-shadow:0 0 14px var(--c);white-space:nowrap}
+  .opt p{font-size:12.5px;line-height:1.6;opacity:.85;margin-bottom:12px}
+  .opt table{width:100%;font-size:12px;border-collapse:collapse;margin-bottom:12px}
+  .opt td{padding:3px 0;border-bottom:1px dashed color-mix(in srgb,var(--c) 30%,transparent)}
+  .opt td:last-child{text-align:right;font-weight:700}
+  .meter{height:6px;border:1px solid color-mix(in srgb,var(--c) 50%,transparent);margin:2px 0 14px;position:relative}
+  .meter i{position:absolute;inset:0;width:var(--w);background:var(--c);box-shadow:0 0 10px var(--c)}
+  .mlabel{font-size:10px;letter-spacing:.2em;opacity:.7;display:flex;justify-content:space-between}
+  .run{display:flex;justify-content:space-between;align-items:center;padding:11px 12px;position:relative;z-index:3;
+    border:1px solid var(--c);font-weight:800;letter-spacing:.18em;font-size:13px;transition:background .2s,color .2s}
+  .opt:hover .run{background:var(--c);color:#010603;text-shadow:none}
+  .run .k{opacity:.7}
+
+  footer{font-size:11px;color:var(--g2);display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:space-between;opacity:.85}
+  kbd{font-family:inherit;border:1px solid var(--g2);padding:0 6px;color:var(--g)}
+
+  /* ===== breach overlay ===== */
+  #breach{position:fixed;inset:0;z-index:45;display:none;flex-direction:column;align-items:center;justify-content:center;
+    gap:20px;text-align:center;padding:16px;background:rgba(0,0,0,.85);--c:var(--g)}
+  #breach.on{display:flex}
+  #count{font-family:VT323,monospace;font-size:clamp(120px,30vw,320px);line-height:.8;color:var(--c);
+    text-shadow:0 0 40px var(--c),-6px 0 var(--red),6px 0 var(--cyan)}
+  #count.tick{animation:tick .5s cubic-bezier(.2,1.6,.4,1)}
+  @keyframes tick{from{transform:scale(1.8);opacity:0;filter:blur(8px)}to{transform:none;opacity:1;filter:none}}
+  #breachText{font-family:VT323,monospace;font-size:clamp(36px,7vw,80px);color:var(--c);text-shadow:0 0 20px var(--c);letter-spacing:.1em}
+  .prog{width:min(460px,90vw);height:16px;border:1px solid var(--c);padding:2px}
+  .prog div{height:100%;width:0;background:var(--c);box-shadow:0 0 14px var(--c)}
+  #breach small{color:var(--c);font-size:12px;letter-spacing:.25em}
+  .slices{position:fixed;inset:0;z-index:44;pointer-events:none;display:none}
+  .slices.on{display:block}
+  .slices i{position:absolute;left:0;right:0;background:var(--c,var(--g));mix-blend-mode:difference;opacity:.8}
+
+  .shake{animation:shake .4s linear}
+  @keyframes shake{
+    10%,90%{transform:translate(-2px,1px)}20%,80%{transform:translate(4px,-2px)}
+    30%,50%,70%{transform:translate(-6px,2px)}40%,60%{transform:translate(6px,-1px)}}
+
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body class="crt">
+<canvas id="bgimg"></canvas>
+<canvas id="rain"></canvas>
+<div class="sweep"></div>
+<div id="xh"></div><div id="xhLabel">0000,0000</div>
+
+<!-- ===== GATE ===== -->
+<div id="gate">
+  <canvas id="gateCv" width="480" height="300"></canvas>
+<pre class="skull">
+            ██████████████
+        ████░░░░░░░░░░░░░░████
+      ██░░░░░░░░░░░░░░░░░░░░░░██
+    ██░░░░░░░░░░░░░░░░░░░░░░░░░░██
+    ██░░░░██████░░░░░░██████░░░░██
+    ██░░░░██████░░░░░░██████░░░░██
+    ██░░░░░░░░░░░░██░░░░░░░░░░░░██
+      ██░░░░░░░░██████░░░░░░░░██
+        ██░░░░░░░░░░░░░░░░░░██
+          ██░░██░░██░░██░░██
+          ██████████████████</pre>
+  <div class="press">&gt; CLICK OR PRESS ANY KEY TO BOOT NOT-OS_</div>
+  <small>ENCRYPTED CHANNEL · LOS NOT-SANTOS DARKNET</small>
+</div>
+
+<div id="os">
+  <div id="osOut"></div>
+  <div id="osBanner"></div>
+  <div id="osSkip">[ESC] SKIP BOOT</div>
+</div>
+
+<div class="wrap">
+  <!-- ===== LEFT ===== -->
+  <aside class="side">
+    <div class="box">
+      <div class="bh"><span>GLOBAL TRACE</span><b>● LIVE</b></div>
+      <canvas id="globe"></canvas>
+    </div>
+    <div class="box">
+      <div class="bh"><span>TARGET</span><span>v5.0</span></div>
+      <div class="kv">
+        <div><span>HOST</span><span>notgta5</span></div>
+        <div><span>PORT</span><span id="port">443</span></div>
+        <div><span>CIPHER</span><span>AES-256</span></div>
+        <div><span>HOPS</span><span id="hops">7</span></div>
+        <div><span>WANTED</span><span id="stars">★★★☆☆</span></div>
+      </div>
+    </div>
+    <div class="box">
+      <div class="bh"><span>CPU LOAD</span><span id="cpu">0%</span></div>
+      <div class="bars" id="bars"></div>
+    </div>
+  </aside>
+
+  <!-- ===== CENTER ===== -->
+  <main>
+    <div class="box bar">
+      <span>root@<b>los-not-santos</b>:~#</span>
+      <span>NODE <b id="ip">10.0.0.1</b></span>
+      <span>UPLINK <b id="ping">--ms</b></span>
+      <span class="warn">● TRACE DETECTED</span>
+      <span>FPS <b id="fpsM">--</b></span>
+      <button class="fxb" id="fxBtn" title="graphics quality">FX: AUTO</button>
+      <span id="clock">00:00:00</span>
+    </div>
+
+    <div class="logoWrap" id="logoWrap">
+<pre class="logo main">
+███╗   ██╗ ██████╗ ████████╗     ██████╗ ████████╗ █████╗     ███████╗
+████╗  ██║██╔═══██╗╚══██╔══╝    ██╔════╝ ╚══██╔══╝██╔══██╗    ██╔════╝
+██╔██╗ ██║██║   ██║   ██║       ██║  ███╗   ██║   ███████║    ███████╗
+██║╚██╗██║██║   ██║   ██║       ██║   ██║   ██║   ██╔══██║    ╚════██║
+██║ ╚████║╚██████╔╝   ██║       ╚██████╔╝   ██║   ██║  ██║    ███████║
+╚═╝  ╚═══╝ ╚═════╝    ╚═╝        ╚═════╝    ╚═╝   ╚═╝  ╚═╝    ╚══════╝</pre>
+      <div class="subtitle">// UNAUTHORIZED ACCESS TERMINAL //</div>
+    </div>
+
+    <section class="duo">
+      <!-- RIG SCAN -->
+      <div class="box">
+        <div class="bh"><span>RIG SCAN // YOUR DEVICE</span><b id="scanState">● SCANNING</b></div>
+        <div class="rig-top">
+          <div class="gauge" id="gauge">
+            <svg viewBox="0 0 120 120">
+              <circle class="trk" cx="60" cy="60" r="50"/>
+              <circle class="tick" cx="60" cy="60" r="50"/>
+              <circle class="val" id="gval" cx="60" cy="60" r="50"/>
+            </svg>
+            <div class="num"><b id="gnum">0.0</b><small>/ 10</small></div>
+          </div>
+          <div class="verdict">
+            <div class="grade" id="grade">?</div>
+            <div class="tier" id="tier">ANALYZING…</div>
+            <div class="rec" id="recTxt">probing hardware…</div>
+          </div>
+        </div>
+        <div class="specs" id="specs"></div>
+      </div>
+
+      <!-- CCTV -->
+      <div class="box">
+        <div class="bh"><span>CCTV // LOS NOT-SANTOS</span><b>● REC</b></div>
+        <div class="cam" id="cam">
+          <canvas id="camCv" width="960" height="600"></canvas>
+          <div class="corner c1"></div><div class="corner c2"></div><div class="corner c3"></div><div class="corner c4"></div>
+          <div class="reticle"></div>
+          <div class="hud">
+            <div class="row"><span class="rec">REC</span><span id="camName">CAM 01</span></div>
+            <div class="row"><span id="camTime">00:00:00:00</span><span id="camCoord">34.05°N 118.24°W</span></div>
+          </div>
+          <div id="hijack">// SIGNAL HIJACKED //</div>
+        </div>
+        <div class="camfoot">
+          <div class="dots" id="camDots"></div>
+          <label class="upl" for="file">[+ ADD IMAGES]</label>
+          <input type="file" id="file" accept="image/*" multiple hidden>
+        </div>
+      </div>
+    </section>
+
+    <div class="box">
+      <div class="bh"><span>SURVEILLANCE GRID // 4 FEEDS HIJACKED</span><b>● LIVE</b></div>
+      <div class="grid4" id="grid4"></div>
+    </div>
+
+    <div class="box">
+      <div class="term-h"><i></i><i></i><i></i>&nbsp; /bin/breach --target notgta5.vercel.app <span>tty0</span></div>
+      <div id="log"></div>
+      <label class="prompt" id="prompt"><span style="color:var(--g)">root@not-os</span>:<span style="color:var(--cyan)">~</span>#<input id="cmd" autocomplete="off" spellcheck="false" placeholder="type 'help'"></label>
+    </div>
+
+    <section class="opts" id="opts">
+      <a class="opt" href="https://notgta5.vercel.app/?low=1&fps=30&res=1280x720" data-key="1">
+        <div class="id"><span>PAYLOAD_01</span><span>[STEALTH]</span></div>
+        <h2>&gt; LITE_MODE</h2>
+        <div class="recTag">◆ RECOMMENDED FOR YOUR RIG</div>
+        <p>Low-footprint injection. Minimal GPU signature. Runs on potato-grade hardware.</p>
+        <table>
+          <tr><td>GFX</td><td>LOW</td></tr>
+          <tr><td>FPS_CAP</td><td>30</td></tr>
+          <tr><td>RES</td><td>1280x720</td></tr>
+        </table>
+        <div class="mlabel"><span>DETECTION RISK</span><span>12%</span></div>
+        <div class="meter" style="--w:12%"><i></i></div>
+        <div class="run"><span>EXECUTE</span><span class="k">[1]</span></div>
+      </a>
+
+      <a class="opt" href="https://notgta5.vercel.app/" data-key="2">
+        <div class="id"><span>PAYLOAD_02</span><span>[STANDARD]</span></div>
+        <h2>&gt; NORMAL_MODE</h2>
+        <div class="recTag">◆ RECOMMENDED FOR YOUR RIG</div>
+        <p>Standard access, default settings. The game exactly as it was built to run.</p>
+        <table>
+          <tr><td>GFX</td><td>DEFAULT</td></tr>
+          <tr><td>FPS_CAP</td><td>NONE</td></tr>
+          <tr><td>RES</td><td>NATIVE</td></tr>
+        </table>
+        <div class="mlabel"><span>DETECTION RISK</span><span>48%</span></div>
+        <div class="meter" style="--w:48%"><i></i></div>
+        <div class="run"><span>EXECUTE</span><span class="k">[2]</span></div>
+      </a>
+    </section>
+
+    <footer>
+      <span>select payload: <kbd>1</kbd> / <kbd>2</kbd> · type <kbd>help</kbd> in the terminal · some codes are secret</span>
+      <span>// this connection is totally not being monitored</span>
+    </footer>
+  </main>
+
+  <!-- ===== RIGHT ===== -->
+  <aside class="side">
+    <div class="box">
+      <div class="bh"><span>PROXIMITY SCAN</span><b>● 3 COPS</b></div>
+      <canvas id="radar"></canvas>
+    </div>
+    <div class="box">
+      <div class="bh"><span>MEM DUMP</span><span>0x7FFE</span></div>
+      <div id="hex"></div>
+    </div>
+  </aside>
+</div>
+
+<div class="ticker"><span class="tl">● LSNN BREAKING</span><div class="tm"><span id="tk"></span></div></div>
+<div class="slices" id="slices"></div>
+<div id="breach">
+  <div id="count">3</div>
+  <div id="breachText">INJECTING</div>
+  <div class="prog"><div id="pbar"></div></div>
+  <small id="breachSub">LITE_MODE</small>
+</div>
+
+<script>
+/* =====================================================================
+   EXTRA CCTV IMAGES — real GTA V screenshots are already loaded from
+   Steam (see SHOTS below). Add more image URLs here if you want.
+   You can also drag & drop images onto the CCTV panel, or use [+ ADD IMAGES].
+   ===================================================================== */
+const IMAGES = [
+  // { src: 'https://example.com/gta-screenshot.jpg', name: 'VINEWOOD HILLS' },
+];
+
+const $ = s => document.querySelector(s);
+const rnd = n => Math.random()*n|0;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const DPR = () => Math.min(devicePixelRatio || 1, 2);
+
+/* =====================================================================
+   PERFORMANCE — one shared frame loop. Every animation gets an FPS cap,
+   pauses when scrolled off-screen or the tab is hidden, and drops to a
+   lower cap (or off) in low-FX mode.
+   ===================================================================== */
+let fxMode = 'auto', lowFx = false, rigScore = null, rainbow = false;
+try { fxMode = localStorage.getItem('notgta5-fx') || 'auto'; } catch(_){}
+const loops = [], onScreen = new WeakMap();
+const io = 'IntersectionObserver' in window
+  ? new IntersectionObserver(es => es.forEach(e => onScreen.set(e.target, e.isIntersecting))) : null;
+function addLoop(fn, fps, el, lowFps = fps){
+  const l = { fn, fps, lowFps, el, last: 0 };
+  if (el && io) io.observe(el);
+  loops.push(l); return l;
+}
+let fpsFrames = 0, fpsT = performance.now();
+function frameAll(now){
+  fpsFrames++;
+  if (now - fpsT >= 1000){ const m = $('#fpsM'); if (m) m.textContent = Math.round(fpsFrames*1000/(now - fpsT)); fpsFrames = 0; fpsT = now; }
+  if (!document.hidden) for (const l of loops){
+    const f = lowFx ? l.lowFps : l.fps;
+    if (!f || (l.el && onScreen.get(l.el) === false)) continue;
+    if (now - l.last >= 1000/f - 2){ l.last = now; l.fn(now); }
+  }
+  requestAnimationFrame(frameAll);
+}
+requestAnimationFrame(frameAll);
+const every = (fn, ms) => setInterval(() => { if (!document.hidden) fn(); }, ms);
+
+function applyFx(){
+  const weak = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4 || (rigScore != null && rigScore < 5);
+  lowFx = fxMode === 'low' || (fxMode === 'auto' && weak);
+  document.body.classList.toggle('lowfx', lowFx);
+  $('#fxBtn').textContent = 'FX: ' + fxMode.toUpperCase() + (fxMode === 'auto' ? (lowFx ? ' · LOW' : ' · HIGH') : '');
+}
+function setFx(m){ fxMode = m; try { localStorage.setItem('notgta5-fx', m); } catch(_){} applyFx(); }
+applyFx();
+$('#fxBtn').addEventListener('click', () => setFx({ auto: 'high', high: 'low', low: 'auto' }[fxMode] || 'auto'));
+
+/* ===== crosshair ===== */
+const xh = $('#xh'), xl = $('#xhLabel');
+let mx = innerWidth/2, my = innerHeight/2;
+addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  xh.style.left = xl.style.left = mx + 'px';
+  xh.style.top = xl.style.top = my + 'px';
+  xl.textContent = mx.toString(16).padStart(4,'0').toUpperCase() + ',' + my.toString(16).padStart(4,'0').toUpperCase();
+});
+
+/* ===== matrix rain ===== */
+const cv = $('#rain'), ctx = cv.getContext('2d');
+const glyphs = 'アイウエオカキクケコサシスセソタチツテトナニヌネノ0123456789ABCDEF$#@%&*<>/\\'.split('');
+let W, H, fs, cols, drops, dpr;
+function resize(){
+  dpr = DPR(); W = cv.width = innerWidth*dpr; H = cv.height = innerHeight*dpr;
+  fs = 16*dpr; cols = Math.ceil(W/fs);
+  drops = Array.from({length:cols}, () => Math.random() * -H/fs);
+  ctx.fillStyle = '#010603'; ctx.fillRect(0,0,W,H);
+  ctx.font = `${fs}px "JetBrains Mono", monospace`;
+}
+resize(); addEventListener('resize', resize);
+let rainBoost = 1;
+function rain(t){
+  ctx.fillStyle = 'rgba(1,6,3,.12)'; ctx.fillRect(0,0,W,H);
+  const r2 = (160*dpr)**2, mxd = mx*dpr, myd = my*dpr;
+  for (let i = 0; i < cols; i++){
+    const x = i*fs, y = drops[i]*fs;
+    const near = (x - mxd)**2 + (y - myd)**2 < r2;
+    ctx.fillStyle = near ? '#ffffff' : rainbow ? `hsl(${(i*9 + t/8) % 360},100%,60%)`
+      : (Math.random() > .975 ? '#d6ffe4' : (rainBoost > 1 ? '#ff2a4d' : '#00ff66'));
+    ctx.fillText(glyphs[rnd(glyphs.length)], x, y);
+    if (y > H && Math.random() > .975) drops[i] = 0;
+    drops[i] += near ? 2 : rainBoost;
+  }
+}
+addLoop(rain, 22, null, 14);
+
+/* ===== text scramble ===== */
+const CH = '!<>-_\\/[]{}—=+*^?#01ABCDEF';
+function scramble(el){
+  const final = el.dataset.final || (el.dataset.final = el.textContent);
+  let f = 0; const total = 22;
+  clearInterval(el._t);
+  el._t = setInterval(() => {
+    el.textContent = final.split('').map((c,i) =>
+      c === ' ' ? ' ' : (i < f/total*final.length ? c : CH[rnd(CH.length)])).join('');
+    if (++f > total){ clearInterval(el._t); el.textContent = final; }
+  }, 30);
+}
+
+/* ===== status bar + side widgets ===== */
+$('#ip').textContent = `${rnd(223)+1}.${rnd(255)}.${rnd(255)}.${rnd(255)}`;
+const barsEl = $('#bars');
+for (let i = 0; i < 18; i++) barsEl.appendChild(document.createElement('i'));
+every(() => {
+  $('#clock').textContent = new Date().toTimeString().slice(0,8);
+  $('#ping').textContent = (12 + rnd(40)) + 'ms';
+  $('#port').textContent = [443, 8080, 1337, 31337, 6969][rnd(5)];
+  $('#hops').textContent = 5 + rnd(6);
+  const s = 2 + rnd(4); if (!rainbow) $('#stars').textContent = '★'.repeat(s) + '☆'.repeat(5 - s);
+}, 1000);
+every(() => {
+  let sum = 0;
+  [...barsEl.children].forEach(b => { const v = 15 + rnd(85); sum += v; b.style.height = v + '%'; });
+  $('#cpu').textContent = Math.round(sum/18) + '%';
+}, 400);
+
+const hex = $('#hex'); const hexLines = [];
+every(() => {
+  const addr = (0x7FFE0000 + rnd(0xFFFF)).toString(16).toUpperCase();
+  const hi = rnd(6);
+  hexLines.push(addr + '  ' + Array.from({length:6}, (_, i) => {
+    const b = rnd(256).toString(16).padStart(2,'0').toUpperCase();
+    return i === hi ? `<span class="hi">${b}</span>` : b;
+  }).join(' '));
+  if (hexLines.length > 20) hexLines.shift();
+  hex.innerHTML = hexLines.join('\n');
+}, 160);
+
+/* ===== wireframe globe ===== */
+const gc = $('#globe'), g = gc.getContext('2d');
+const pts = [];
+for (let lat = -80; lat <= 80; lat += 20) for (let lon = 0; lon < 360; lon += 15) pts.push([lat, lon]);
+const cities = Array.from({length:7}, () => [rnd(140) - 70, rnd(360)]);
+let rot = 0;
+function proj(lat, lon, R, cx, cy){
+  const la = lat*Math.PI/180, lo = (lon + rot)*Math.PI/180;
+  const x = Math.cos(la)*Math.sin(lo), y = Math.sin(la), z = Math.cos(la)*Math.cos(lo);
+  const t = .35, y2 = y*Math.cos(t) - z*Math.sin(t), z2 = y*Math.sin(t) + z*Math.cos(t);
+  return [cx + x*R, cy - y2*R, z2];
+}
+function globe(){
+  const d = DPR(), s = gc.clientWidth*d;
+  if (s && gc.width !== s){ gc.width = gc.height = s; }
+  const R = s*.4, c = s/2;
+  g.clearRect(0,0,s,s);
+  g.strokeStyle = 'rgba(0,255,102,.25)'; g.lineWidth = d;
+  g.beginPath(); g.arc(c, c, R, 0, Math.PI*2); g.stroke();
+  for (const [la, lo] of pts){
+    const [x, y, z] = proj(la, lo, R, c, c);
+    if (z < 0) continue;
+    g.fillStyle = `rgba(0,255,102,${.25 + z*.7})`;
+    g.fillRect(x, y, 1.6*d, 1.6*d);
+  }
+  const vis = cities.map(p => proj(p[0], p[1], R, c, c));
+  g.strokeStyle = 'rgba(255,42,77,.8)'; g.shadowColor = '#ff2a4d'; g.shadowBlur = 8;
+  for (let i = 0; i < vis.length - 1; i++){
+    const a = vis[i], b = vis[i+1];
+    if (a[2] < 0 || b[2] < 0) continue;
+    g.beginPath(); g.moveTo(a[0], a[1]);
+    g.quadraticCurveTo((a[0]+b[0])/2, Math.min(a[1], b[1]) - R*.35, b[0], b[1]); g.stroke();
+  }
+  for (const [x, y, z] of vis){
+    if (z < 0) continue;
+    g.fillStyle = '#ff2a4d'; g.beginPath(); g.arc(x, y, 3*d, 0, Math.PI*2); g.fill();
+  }
+  g.shadowBlur = 0; rot += .6;
+}
+addLoop(globe, 30, gc, 0);
+
+/* ===== radar ===== */
+const rc = $('#radar'), r = rc.getContext('2d');
+const blips = Array.from({length:3}, () => ({a: Math.random()*Math.PI*2, d: .3 + Math.random()*.6, life: 0}));
+let sweepA = 0;
+function radar(){
+  const d = DPR(), s = rc.clientWidth*d;
+  if (s && rc.width !== s){ rc.width = rc.height = s; }
+  const R = s*.45, c = s/2;
+  r.fillStyle = 'rgba(1,6,3,.25)'; r.fillRect(0,0,s,s);
+  r.strokeStyle = 'rgba(0,255,102,.3)'; r.lineWidth = d;
+  for (let i = 1; i <= 4; i++){ r.beginPath(); r.arc(c, c, R*i/4, 0, Math.PI*2); r.stroke(); }
+  r.beginPath(); r.moveTo(c-R, c); r.lineTo(c+R, c); r.moveTo(c, c-R); r.lineTo(c, c+R); r.stroke();
+  if (r.createConicGradient){
+    const grad = r.createConicGradient(sweepA - .6, c, c);
+    grad.addColorStop(0, 'rgba(0,255,102,0)'); grad.addColorStop(.095, 'rgba(0,255,102,.45)'); grad.addColorStop(.1, 'rgba(0,255,102,0)');
+    r.fillStyle = grad; r.beginPath(); r.arc(c, c, R, 0, Math.PI*2); r.fill();
+  }
+  r.strokeStyle = '#00ff66'; r.shadowColor = '#00ff66'; r.shadowBlur = 10;
+  r.beginPath(); r.moveTo(c, c); r.lineTo(c + Math.cos(sweepA)*R, c + Math.sin(sweepA)*R); r.stroke();
+  for (const b of blips){
+    const diff = ((sweepA - b.a) % (Math.PI*2) + Math.PI*2) % (Math.PI*2);
+    if (diff < .05) b.life = 1;
+    if (b.life > 0){
+      r.fillStyle = `rgba(255,42,77,${b.life})`; r.shadowColor = '#ff2a4d';
+      r.beginPath(); r.arc(c + Math.cos(b.a)*b.d*R, c + Math.sin(b.a)*b.d*R, 4*d, 0, Math.PI*2); r.fill();
+      b.life -= .006; b.a += .002;
+    }
+  }
+  r.shadowBlur = 0;
+  sweepA = (sweepA + .05) % (Math.PI*2);
+}
+addLoop(radar, 30, rc, 0);
+
+/* =====================================================================
+   CCTV — built-in drawn scenes + user images, with pixelate "hack" swap
+   ===================================================================== */
+const SW = 640, SH = 400;
+function mk(){ const c = document.createElement('canvas'); c.width = SW; c.height = SH; return [c, c.getContext('2d')]; }
+function lin(c, stops, y0 = 0, y1 = SH){ const gr = c.createLinearGradient(0, y0, 0, y1); stops.forEach((s, i) => gr.addColorStop(i/(stops.length-1), s)); return gr; }
+function palm(c, x, y, h, lean, col){
+  c.strokeStyle = col; c.lineCap = 'round';
+  c.lineWidth = 7; c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + lean*.2, y - h*.55, x + lean, y - h); c.stroke();
+  const tx = x + lean, ty = y - h;
+  c.lineWidth = 4;
+  for (let i = 0; i < 9; i++){
+    const a = Math.PI + i/8*Math.PI;
+    const ex = tx + Math.cos(a)*62, ey = ty + Math.sin(a)*26 + 34;
+    c.beginPath(); c.moveTo(tx, ty);
+    c.quadraticCurveTo(tx + Math.cos(a)*36, ty + Math.sin(a)*38 - 8, ex, ey); c.stroke();
+  }
+}
+function skyline(c, base, col, seed, maxH, lit){
+  let x = -10, s = seed;
+  const R = () => (s = (s*9301 + 49297) % 233280) / 233280;
+  while (x < SW){
+    const w = 22 + R()*48, h = 30 + R()*maxH;
+    c.fillStyle = col; c.fillRect(x, base - h, w, h);
+    if (R() > .7){ c.fillRect(x + w/2 - 1, base - h - 18, 2, 18); }
+    if (lit) for (let wy = base - h + 6; wy < base - 4; wy += 8)
+      for (let wx = x + 4; wx < x + w - 4; wx += 7)
+        if (R() > .62){ c.fillStyle = R() > .5 ? 'rgba(255,214,120,.85)' : 'rgba(150,230,255,.7)'; c.fillRect(wx, wy, 3, 4); c.fillStyle = col; }
+    x += w + 2;
+  }
+}
+const scenes = [];
+// 1. sunset downtown
+(() => { const [cnv, c] = mk();
+  c.fillStyle = lin(c, ['#1b0b3a','#6d1b5c','#ff5e3a','#ffc46b']); c.fillRect(0,0,SW,SH);
+  const sg = c.createRadialGradient(330, 250, 10, 330, 250, 120); sg.addColorStop(0,'#fff3c4'); sg.addColorStop(.35,'#ffb347'); sg.addColorStop(1,'rgba(255,120,60,0)');
+  c.fillStyle = sg; c.fillRect(0,0,SW,SH);
+  skyline(c, 300, '#2a1238', 7, 120, false);
+  skyline(c, 330, '#12081e', 3, 190, true);
+  c.fillStyle = '#07030c'; c.fillRect(0, 328, SW, 80);
+  palm(c, 70, 400, 220, 30, '#07030c'); palm(c, 560, 400, 250, -40, '#07030c'); palm(c, 610, 400, 180, 20, '#07030c');
+  scenes.push({ img: cnv, name: 'CAM 01 // DOWNTOWN' });
+})();
+// 2. night hills + sign
+(() => { const [cnv, c] = mk();
+  c.fillStyle = lin(c, ['#020313','#0b1440','#23306b']); c.fillRect(0,0,SW,SH);
+  for (let i = 0; i < 140; i++){ c.fillStyle = `rgba(255,255,255,${Math.random()*.8})`; c.fillRect(Math.random()*SW, Math.random()*220, 1.5, 1.5); }
+  c.fillStyle = '#eef0ff'; c.beginPath(); c.arc(520, 70, 26, 0, Math.PI*2); c.fill();
+  c.fillStyle = '#0b1a1a'; c.beginPath(); c.moveTo(0, 260); c.bezierCurveTo(140, 120, 260, 140, 380, 210); c.bezierCurveTo(470, 150, 560, 170, SW, 230); c.lineTo(SW, SH); c.lineTo(0, SH); c.fill();
+  c.save(); c.translate(130, 192); c.rotate(-.12); c.font = 'bold 40px Impact, Arial Black, sans-serif'; c.fillStyle = '#f4f4f4';
+  c.shadowColor = '#fff'; c.shadowBlur = 12; [...'NOTWOOD'].forEach((ch, i) => c.fillText(ch, i*30, Math.sin(i)*3)); c.restore();
+  c.fillStyle = '#050b0b'; c.beginPath(); c.moveTo(0, 320); c.bezierCurveTo(200, 270, 420, 300, SW, 280); c.lineTo(SW, SH); c.lineTo(0, SH); c.fill();
+  for (let i = 0; i < 260; i++){ c.fillStyle = ['#ffd27a','#ffffff','#ff9a5a'][rnd(3)]; c.fillRect(Math.random()*SW, 330 + Math.random()*70, 2, 2); }
+  scenes.push({ img: cnv, name: 'CAM 02 // NOTWOOD HILLS' });
+})();
+// 3. night highway
+(() => { const [cnv, c] = mk();
+  c.fillStyle = lin(c, ['#05010f','#1a0838','#4a1050'], 0, 200); c.fillRect(0,0,SW,SH);
+  skyline(c, 200, '#0d0618', 11, 110, true);
+  c.fillStyle = '#0a0a10'; c.beginPath(); c.moveTo(280, 200); c.lineTo(360, 200); c.lineTo(SW+120, SH); c.lineTo(-120, SH); c.fill();
+  c.fillStyle = '#111'; c.fillRect(0, 200, SW, 4);
+  c.strokeStyle = '#f5d76e'; c.lineWidth = 3;
+  for (let i = 0; i < 9; i++){ const t = i/9, t2 = (i+.45)/9; c.beginPath(); c.moveTo(320, 200 + t*t*200); c.lineTo(320, 200 + t2*t2*200); c.stroke(); }
+  c.lineCap = 'round';
+  for (let i = 0; i < 30; i++){
+    const left = i % 2, t = Math.random(), y = 205 + t*190, x0 = 320 + (left ? -1 : 1)*(10 + t*260);
+    c.strokeStyle = left ? 'rgba(255,40,60,.8)' : 'rgba(255,250,220,.85)'; c.shadowColor = c.strokeStyle; c.shadowBlur = 14;
+    c.lineWidth = 1 + t*5; c.beginPath(); c.moveTo(x0, y); c.lineTo(x0 + (left ? -1 : 1)*(30 + t*120), y + 10 + t*30); c.stroke();
+  }
+  c.shadowBlur = 0;
+  scenes.push({ img: cnv, name: 'CAM 03 // FREEWAY 1' });
+})();
+// 4. beach pier
+(() => { const [cnv, c] = mk();
+  c.fillStyle = lin(c, ['#2a8cd8','#7fd0f5','#ffe2b0'], 0, 230); c.fillRect(0,0,SW,230);
+  c.fillStyle = lin(c, ['#0f6f9e','#0a4a72'], 230, 300); c.fillRect(0,230,SW,70);
+  c.fillStyle = lin(c, ['#f1d39a','#d9b26f'], 300, SH); c.fillRect(0,300,SW,100);
+  c.fillStyle = 'rgba(255,255,255,.7)'; for (let i = 0; i < 30; i++) c.fillRect(rnd(SW), 240 + rnd(55), 12 + rnd(20), 2);
+  c.fillStyle = '#3b2a22'; c.fillRect(260, 228, SW, 10); for (let x = 270; x < SW; x += 28) c.fillRect(x, 238, 4, 50);
+  c.strokeStyle = '#ff3b5c'; c.lineWidth = 3; c.beginPath(); c.arc(470, 150, 72, 0, Math.PI*2); c.stroke();
+  for (let i = 0; i < 16; i++){ const a = i/16*Math.PI*2; c.beginPath(); c.moveTo(470, 150); c.lineTo(470 + Math.cos(a)*72, 150 + Math.sin(a)*72); c.lineWidth = 1.2; c.stroke();
+    c.fillStyle = ['#ffd23f','#3bceac','#ee4266'][i%3]; c.fillRect(466 + Math.cos(a)*72, 146 + Math.sin(a)*72, 8, 9); }
+  c.lineWidth = 4; c.beginPath(); c.moveTo(440, 228); c.lineTo(470, 150); c.lineTo(500, 228); c.stroke();
+  c.strokeStyle = '#ffffff'; c.lineWidth = 2; c.beginPath(); c.moveTo(560, 228); c.bezierCurveTo(580, 120, 610, 120, 640, 200); c.stroke();
+  palm(c, 60, 380, 230, 40, '#1d3b2a'); palm(c, 150, 390, 170, -30, '#1d3b2a');
+  scenes.push({ img: cnv, name: 'CAM 04 // DEL NOT-PERRO PIER' });
+})();
+
+/* ----- real GTA V screenshots (official Steam store media, hotlinked) ----- */
+const STEAM = 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/271590/ss_';
+const SHOTS = [
+  '32aa18ab3175e3002217862dd5917646d298ab6b','2744f112fa060320d191a50e8b3a92441a648a56',
+  'da39c16db175f6973770bae6b91d411251763152','bd5db78286be0a7c6b2c62519099a9e27e6b06f3',
+  'b1a1cb7959d6a0e6fcb2d06ebf97a66c9055cef3','bc5fc79d3366c837372327717249a4887aa46d63',
+  'd2eb9d3e50f9e4cb8db37d2976990b3795da8187','bd944debbec9936769f6dfb39ee456ca605615e3',
+  '66daaa8e0416b805ffb9a853235e21468d6b85bc','3820844756ae43340809e247fea327025dca1e39',
+  '5eafc9316db476e74c1b38b25f15c1326f4d574a','fbb16a4376f0205178de722aa14b9d243c2a47ea',
+  'bab596ea9a6924055cd8c097bba75f052c18025d','c5df068273a036bf224c89d3fcd534811790a808',
+  '1487c2c7ddd9a1ae6b55f7e50d5d63ada6915921','ef2be2226f012c4c1bc6f04ab8ed35ca3ffc8342',
+];
+const PLACES = ['DOWNTOWN','VINEWOOD BLVD','DEL PERRO PIER','VESPUCCI BEACH','SANDY SHORES','PALETO BAY',
+  'MOUNT CHILIAD','LSIA AIRPORT','ROCKFORD HILLS','LA MESA','MIRROR PARK','BLAINE COUNTY',
+  'GRAPESEED','PILLBOX HILL','TERMINAL','ALAMO SEA'];
+
+const feeds = [];
+const camLabel = (i, place) => `CAM ${String(i + 1).padStart(2,'0')} // ${place}`;
+function addFeed(thumbSrc, fullSrc, name){
+  const f = { th: new Image(), full: null, fullSrc, name };
+  f.th.onload = () => { feeds.push(f); renderDots(); };
+  f.th.src = thumbSrc;
+  return f;
+}
+function loadFull(f){
+  if (!f || f.full || !f.fullSrc) return;
+  f.full = new Image(); f.full.src = f.fullSrc;
+}
+SHOTS.forEach((h, i) => addFeed(STEAM + h + '.600x338.jpg', STEAM + h + '.1920x1080.jpg', camLabel(i, PLACES[i % PLACES.length])));
+IMAGES.forEach((o, i) => addFeed(o.src, o.src, o.name || camLabel(SHOTS.length + i, 'UPLINK')));
+scenes.forEach(s => { s.th = s.img; });
+const pool = () => (feeds.length ? feeds : scenes);
+const ready = img => img && (img.width && (img.complete === undefined || img.complete) && (img.naturalWidth === undefined || img.naturalWidth));
+
+function drawCover(ctx2, img, w, h, zoom){
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+  const s = Math.max(w/iw, h/ih)*zoom, dw = iw*s, dh = ih*s;
+  ctx2.drawImage(img, (w - dw)/2, (h - dh)/2, dw, dh);
+}
+
+/* ----- one "camera" = a canvas that cycles feeds with a pixelate hack swap ----- */
+class Cam{
+  constructor(cv, o = {}){
+    this.cv = cv; this.c = cv.getContext('2d');
+    this.small = document.createElement('canvas'); this.sc = this.small.getContext('2d');
+    Object.assign(this, { show: 4200, trans: 750, basePx: 1, tint: false, big: false, idx: 0, step: 1,
+      hijack: null, nameEl: null, onSwap: null, noise: true, paused: false }, o);
+    this.phase = 'show'; this.t = performance.now() - Math.random()*this.show*.8; this.target = null;
+  }
+  trigger(){ if (this.phase === 'show'){ this.phase = 'out'; this.t = performance.now(); this.hijack && this.hijack.classList.add('on'); } }
+  jump(i){ this.target = i; this.trigger(); }
+  frame(now){
+    const list = pool(), w = this.cv.width, h = this.cv.height, c = this.c;
+    const cur = list[this.idx % list.length];
+    if (this.big) loadFull(cur);
+    const src = this.big && ready(cur.full) ? cur.full : cur.th;
+    const t = now - this.t; let px = 1;
+    if (this.phase === 'show'){ if (t > this.show) this.trigger(); }
+    else if (this.phase === 'out'){
+      px = 1 + Math.pow(Math.min(1, t/this.trans), 2)*46;
+      if (t > this.trans){
+        this.idx = this.target != null ? this.target : (this.idx + this.step) % list.length;
+        this.target = null; this.phase = 'in'; this.t = now; this.onSwap && this.onSwap(this);
+      }
+    } else {
+      px = 1 + Math.pow(Math.max(0, 1 - t/this.trans), 2)*46;
+      if (t > this.trans){ this.phase = 'show'; this.t = now; this.hijack && this.hijack.classList.remove('on'); }
+    }
+    px = Math.max(px, this.basePx);
+    const zoom = 1.02 + (this.phase === 'show' ? Math.min(1, t/this.show) : 1)*.07;
+    if (!ready(src)) return;
+    c.clearRect(0, 0, w, h);
+    if (px <= 1.5){ c.imageSmoothingEnabled = true; drawCover(c, src, w, h, zoom); }
+    else {
+      const sw = Math.max(2, w/px|0), sh = Math.max(2, h/px|0);
+      if (this.small.width !== sw || this.small.height !== sh){ this.small.width = sw; this.small.height = sh; }
+      this.sc.imageSmoothingEnabled = true; drawCover(this.sc, src, sw, sh, zoom);
+      c.imageSmoothingEnabled = false; c.drawImage(this.small, 0, 0, sw, sh, 0, 0, w, h);
+      const amt = Math.min(1, (px - this.basePx)/30);
+      if (amt > 0){
+        for (let i = 0; i < 7*amt; i++){
+          const y = rnd(h), s2 = 4 + rnd(h/12), dx = (Math.random() - .5)*w*.1*amt;
+          c.drawImage(this.cv, 0, y, w, s2, dx, y, w, s2);
+        }
+        c.globalCompositeOperation = 'lighter';
+        c.fillStyle = `rgba(255,0,40,${.14*amt})`; c.fillRect(rnd(8), 0, w, h);
+        c.fillStyle = `rgba(0,255,220,${.12*amt})`; c.fillRect(-rnd(8), 0, w, h);
+        c.globalCompositeOperation = 'source-over';
+        for (let i = 0; i < 300*amt; i++){ c.fillStyle = Math.random() > .5 ? '#fff' : '#000'; c.fillRect(rnd(w), rnd(h), 2, 2); }
+      }
+    }
+    if (this.tint){
+      c.globalCompositeOperation = 'saturation'; c.fillStyle = '#808080'; c.fillRect(0, 0, w, h);
+      c.globalCompositeOperation = 'multiply'; c.fillStyle = '#00ff66'; c.fillRect(0, 0, w, h);
+      c.globalCompositeOperation = 'source-over';
+    } else { c.fillStyle = 'rgba(0,255,102,.05)'; c.fillRect(0, 0, w, h); }
+    if (this.noise){
+      for (let i = 0; i < 50; i++){ c.fillStyle = `rgba(255,255,255,${Math.random()*.15})`; c.fillRect(rnd(w), rnd(h), 1, 1); }
+      if (Math.random() > .985){ c.fillStyle = 'rgba(255,255,255,.08)'; c.fillRect(0, rnd(h), w, 2 + rnd(6)); }
+    }
+    if (this.nameEl){ const n = list[this.idx % list.length].name; if (this.nameEl.textContent !== n) this.nameEl.textContent = n; }
+  }
+}
+
+/* main CCTV */
+const camEl = $('#cam');
+const mainCam = new Cam($('#camCv'), { big: true, hijack: $('#hijack'), nameEl: $('#camName'), onSwap: () => renderDots() });
+mainCam.t = performance.now();
+function renderDots(){
+  const el = $('#camDots'); if (!el) return; el.innerHTML = '';
+  const n = pool().length;
+  for (let i = 0; i < n; i++){ const d = document.createElement('i'); if (i === mainCam.idx % n) d.className = 'on'; el.appendChild(d); }
+}
+renderDots();
+camEl.addEventListener('click', () => mainCam.trigger());
+
+/* surveillance grid */
+const grid = $('#grid4'), minis = [];
+for (let i = 0; i < 4; i++){
+  const m = document.createElement('div'); m.className = 'mini';
+  m.innerHTML = `<canvas width="400" height="250"></canvas><span class="ml"></span><span class="mrec">● ${String(i + 1).padStart(2,'0')}</span><span class="mh">HACKED</span>`;
+  grid.appendChild(m);
+  const cam = new Cam(m.querySelector('canvas'), { idx: 3 + i*3, step: 4, show: 3000 + i*900, hijack: m.querySelector('.mh'), nameEl: m.querySelector('.ml') });
+  m.addEventListener('click', () => { mainCam.jump(cam.idx % pool().length); cam.trigger(); });
+  minis.push(cam);
+}
+
+/* pixelated green city behind everything */
+const bgCv = $('#bgimg');
+function sizeBg(){ bgCv.width = Math.max(160, innerWidth/3|0); bgCv.height = Math.max(100, innerHeight/3|0); }
+sizeBg(); addEventListener('resize', sizeBg);
+const bgCam = new Cam(bgCv, { tint: true, basePx: 2.2, show: 7000, trans: 900, idx: 7, step: 3, noise: false });
+
+/* gate backdrop */
+const gateCam = new Cam($('#gateCv'), { tint: true, basePx: 3, show: 1800, trans: 500, idx: 1, step: 5 });
+
+addLoop(now => mainCam.frame(now), 30, camEl, 20);
+minis.forEach((k, i) => addLoop(now => k.frame(now), 20, grid.children[i], 8));
+addLoop(now => bgCam.frame(now), 12, bgCv, 0);
+addLoop(now => { if (!gateCam.paused) gateCam.frame(now); }, 15, $('#gateCv'), 10);
+every(() => {
+  const d = new Date();
+  $('#camTime').textContent = d.toTimeString().slice(0,8) + ':' + String(rnd(30)).padStart(2,'0');
+  $('#camCoord').textContent = (34 + Math.random()*.1).toFixed(3) + '°N ' + (118.2 + Math.random()*.1).toFixed(3) + '°W';
+}, 250);
+
+/* user images: drag & drop or file picker */
+function takeFiles(files){
+  [...files].filter(f => f.type.startsWith('image/')).forEach(f => {
+    const u = URL.createObjectURL(f);
+    addFeed(u, u, camLabel(feeds.length, f.name.replace(/\.[^.]+$/,'').toUpperCase().slice(0,18)));
+  });
+}
+$('#file').addEventListener('change', e => takeFiles(e.target.files));
+['dragenter','dragover'].forEach(ev => camEl.addEventListener(ev, e => { e.preventDefault(); camEl.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => camEl.addEventListener(ev, e => { e.preventDefault(); camEl.classList.remove('drag'); }));
+camEl.addEventListener('drop', e => takeFiles(e.dataTransfer.files));
+
+/* =====================================================================
+   RIG SCAN — reads what the browser exposes and scores it
+   ===================================================================== */
+function gpuInfo(){
+  try{
+    const gl = document.createElement('canvas').getContext('webgl') || document.createElement('canvas').getContext('experimental-webgl');
+    if (!gl) return { name: 'NO WEBGL', score: 1 };
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    let s = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    const m = s.match(/ANGLE \((.+)\)$/);
+    if (m){ const parts = m[1].split(', '); s = parts[1] || parts[0]; }
+    s = s.replace(/\(0x[0-9a-f]+\)/i, '').replace(/Direct3D.*$/i, '').replace(/\s+/g, ' ').trim();
+    const G = s.toLowerCase();
+    let score = 5;
+    if (/swiftshader|llvmpipe|software|basic render/.test(G)) score = 1;
+    else if (/rtx\s?(40|50)\d\d|rx\s?(79|78|9\d)\d\d/.test(G)) score = 10;
+    else if (/rtx|rx\s?[67]\d\d\d/.test(G)) score = 9;
+    else if (/apple m\d (pro|max|ultra)/.test(G)) score = 9;
+    else if (/apple m[2-9]/.test(G)) score = 8;
+    else if (/apple/.test(G)) score = 7;
+    else if (/gtx\s?16|rx\s?5\d\d\d|arc/.test(G)) score = 7;
+    else if (/gtx|radeon/.test(G)) score = 6;
+    else if (/iris|uhd graphics 7|xe/.test(G)) score = 4.5;
+    else if (/intel/.test(G)) score = 3;
+    else if (/adreno|mali|powervr/.test(G)) score = 3.5;
+    return { name: s, score };
+  }catch(_){ return { name: 'UNKNOWN', score: 5 }; }
+}
+function osBrowser(){
+  const ua = navigator.userAgent;
+  const os = /Windows NT 1\d/.test(ua) ? 'WINDOWS 10/11' : /Windows/.test(ua) ? 'WINDOWS' : /CrOS/.test(ua) ? 'CHROME OS'
+    : /Android/.test(ua) ? 'ANDROID' : /iPhone|iPad/.test(ua) ? 'iOS' : /Mac OS X/.test(ua) ? 'MACOS' : /Linux/.test(ua) ? 'LINUX' : 'UNKNOWN';
+  const br = /Edg\//.test(ua) ? 'EDGE' : /OPR\//.test(ua) ? 'OPERA' : /Firefox\//.test(ua) ? 'FIREFOX'
+    : /Chrome\//.test(ua) ? 'CHROME' : /Safari\//.test(ua) ? 'SAFARI' : 'UNKNOWN';
+  const v = (ua.match(/(?:Edg|OPR|Firefox|Chrome|Version)\/(\d+)/) || [])[1];
+  return { os, br: br + (v ? ' ' + v : '') };
+}
+function measureFps(ms = 1000){
+  return new Promise(res => {
+    let n = 0; const t0 = performance.now();
+    const f = t => { n++; if (t - t0 < ms) requestAnimationFrame(f); else res(Math.round(n*1000/(t - t0))); };
+    requestAnimationFrame(f);
+  });
+}
+const scoreColor = s => s >= 7.5 ? 'var(--g)' : s >= 5 ? 'var(--amber)' : 'var(--red)';
+async function addSpec(k, v, s){
+  const row = document.createElement('div'); row.className = 'spec';
+  row.innerHTML = `<span class="k">${k}</span><span class="v"></span><span class="s"></span>` + (s != null ? '<div class="m"><i></i></div>' : '');
+  row.querySelector('.v').textContent = v; row.querySelector('.v').title = v;
+  if (s != null){ row.style.setProperty('--sc', scoreColor(s)); row.querySelector('.s').textContent = s.toFixed(1); }
+  $('#specs').appendChild(row);
+  await sleep(30); row.classList.add('in');
+  if (s != null) setTimeout(() => row.querySelector('.m i').style.width = s*10 + '%', 60);
+  scramble(row.querySelector('.v'));
+  await sleep(260);
+}
+let rigResult = null;
+async function rigScan(){
+  const gpu = gpuInfo();
+  const cores = navigator.hardwareConcurrency || 0;
+  const mem = navigator.deviceMemory;
+  const sw = screen.width, sh = screen.height, pr = devicePixelRatio || 1;
+  const { os, br } = osBrowser();
+  const conn = navigator.connection && navigator.connection.effectiveType;
+
+  const sGpu = gpu.score;
+  const sCpu = cores ? clamp(cores/12*10, 1, 10) : 5;
+  const sMem = mem ? clamp(mem/8*10, 1, 10) : 6;
+  const sScr = clamp((sw*sh*pr*pr)/(2560*1440)*10, 2, 10);
+
+  await addSpec('GPU', gpu.name, sGpu);
+  await addSpec('CPU', cores ? `${cores} THREADS` : 'HIDDEN', sCpu);
+  await addSpec('RAM', mem ? `${mem >= 8 ? '8+' : mem} GB` : 'HIDDEN BY BROWSER', sMem);
+  await addSpec('DISPLAY', `${Math.round(sw*pr)}x${Math.round(sh*pr)} @${pr}x`, sScr);
+  const fps = await measureFps(1000);
+  // a hidden/background tab pauses frames, so don't punish the rig for that
+  const fpsOk = fps >= 10;
+  const sFps = fpsOk ? clamp(fps/60*7.5, 1, 10) : 6;
+  await addSpec('FPS TEST', fpsOk ? `${fps} FPS (live)` : 'N/A (TAB HIDDEN)', sFps);
+  await addSpec('OS', os);
+  await addSpec('BROWSER', br);
+  if (conn) await addSpec('NETWORK', conn.toUpperCase());
+  try{
+    if (navigator.getBattery){
+      const b = await navigator.getBattery();
+      await addSpec('BATTERY', `${Math.round(b.level*100)}%${b.charging ? ' ⚡ CHARGING' : ''}`);
+    }
+  }catch(_){}
+
+  const total = sGpu*.35 + sCpu*.2 + sMem*.2 + sFps*.15 + sScr*.1;
+  const tiers = [
+    [9, 'S', 'NASA MAINFRAME'], [7.5, 'A', 'GAMING BEAST'], [6, 'B', 'SOLID RIG'],
+    [4.5, 'C', 'MID-TIER MACHINE'], [3, 'D', 'TOASTER'], [0, 'F', 'CERTIFIED POTATO']
+  ];
+  const [, grade, tier] = tiers.find(t => total >= t[0]);
+  const recNormal = total >= 6;
+  const col = scoreColor(total);
+
+  const gauge = $('#gauge').parentElement.parentElement;
+  gauge.style.setProperty('--gc', col);
+  const C = 2*Math.PI*50;
+  $('#gval').style.strokeDasharray = `${C*total/10} ${C}`;
+  const t0 = performance.now();
+  (function count(t){ const p = Math.min(1, (t - t0)/1400); $('#gnum').textContent = (total*(1 - Math.pow(1 - p, 3))).toFixed(1); if (p < 1) requestAnimationFrame(count); })(t0);
+  $('#grade').textContent = grade;
+  $('#tier').textContent = tier;
+  $('#recTxt').innerHTML = `recommended payload: <b>${recNormal ? 'NORMAL_MODE' : 'LITE_MODE'}</b>`;
+  scramble($('#tier'));
+  $('#scanState').textContent = '● COMPLETE'; $('#scanState').style.color = 'var(--g)';
+  document.querySelector(`.opt[data-key="${recNormal ? 2 : 1}"]`).classList.add('recd');
+  rigResult = { total, grade, tier, recNormal };
+  rigScore = total; applyFx();
+  return rigResult;
+}
+
+/* ===== boot sequence ===== */
+const log = $('#log');
+const cursor = document.createElement('span'); cursor.className = 'cursor';
+async function typeLine(cls, text, progress){
+  const el = document.createElement('div'); el.className = cls;
+  log.appendChild(el); el.after(cursor);
+  for (const ch of text){ el.textContent += ch; await sleep(ch === '.' ? 5 : 10 + Math.random()*20); }
+  if (progress){
+    const p = document.createElement('span'); el.appendChild(p);
+    for (let i = 0; i <= 10; i++){ p.textContent = '[' + '█'.repeat(i) + '░'.repeat(10 - i) + '] ' + i*10 + '%'; await sleep(40 + rnd(60)); }
+  }
+  await sleep(120);
+}
+async function boot(scanPromise){
+  await typeLine('dim','$ ./breach --target notgta5.vercel.app --stealth');
+  await typeLine('ok', '[+] resolving host ............... OK');
+  await typeLine('ok', '[+] bypassing firewall ........... ', true);
+  await typeLine('am', '[!] proxy chain: 7 hops (TOR/VPN/???)');
+  await typeLine('cy', '[~] hijacking city CCTV network .. OK');
+  await typeLine('ok', '[+] decrypting game assets ....... ', true);
+  await typeLine('rd', '[x] police scanner detected — spoofing signal');
+  await typeLine('ok', '[+] fingerprinting local rig .....');
+  const r = await scanPromise;
+  await typeLine(r.total >= 6 ? 'ok' : 'am', `[=] rig score ${r.total.toFixed(1)}/10 (${r.grade}) — ${r.tier}`);
+  if (lowFx) await typeLine('am', '[~] FX auto-downgraded so your rig stays smooth (click FX to change)');
+  await typeLine('cy', `[~] wanted level suppressed: ★★★★★ → ☆☆☆☆☆`);
+  await typeLine('ok', `[+] 2 payloads armed. ${r.recNormal ? 'NORMAL_MODE' : 'LITE_MODE'} recommended.`);
+  await typeLine('dim', "[?] type 'help' below for commands");
+  $('#opts').classList.add('show');
+  $('#prompt').classList.add('on');
+  document.querySelectorAll('.opt h2').forEach(scramble);
+}
+
+/* ===== interactive terminal ===== */
+function out(lines, cls = 'out'){
+  [].concat(lines).forEach(t => { const d = document.createElement('div'); d.className = cls; d.textContent = t; log.appendChild(d); });
+  while (log.children.length > 80) log.firstChild.remove();
+  log.lastChild && log.lastChild.scrollIntoView({ block: 'nearest' });
+}
+function bigGlitch(){
+  const sl = $('#slices'); sl.style.setProperty('--c', 'var(--red)'); sl.classList.add('on');
+  document.body.classList.remove('shake'); void document.body.offsetWidth; document.body.classList.add('shake');
+  let k = 0;
+  const t = setInterval(() => {
+    sl.innerHTML = '';
+    for (let i = 0; i < 7; i++){ const s = document.createElement('i'); s.style.top = rnd(100) + '%'; s.style.height = (2 + rnd(40)) + 'px'; s.style.transform = `translateX(${rnd(60) - 30}px)`; sl.appendChild(s); }
+    if (++k > 8){ clearInterval(t); sl.innerHTML = ''; sl.classList.remove('on'); }
+  }, 60);
+}
+function godMode(){
+  document.body.classList.add('god'); rainbow = true; bigGlitch();
+  $('#stars').textContent = 'GOD MODE';
+  out(['', '██ CHEAT ACTIVATED: GOD MODE ██', 'invincibility: ON · wanted level: IMMUNE · style: MAXIMUM'], 'cy');
+  setTimeout(() => { document.body.classList.remove('god'); rainbow = false; }, 10000);
+}
+const CMDS = {
+  help: () => ['commands:',
+    '  lite | 1 ............ launch LITE_MODE',
+    '  normal | 2 .......... launch NORMAL_MODE',
+    '  scan ................ your rig report',
+    '  cam [next|<n>] ...... control the CCTV feed',
+    '  fx [auto|high|low] .. graphics quality',
+    '  matrix .............. rain overdrive',
+    '  glitch .............. corrupt the screen',
+    '  ls, cat, whoami, date, wanted, sudo, clear, exit'],
+  lite: () => { launch(document.querySelector('.opt[data-key="1"]')); return 'deploying PAYLOAD_01 ...'; },
+  normal: () => { launch(document.querySelector('.opt[data-key="2"]')); return 'deploying PAYLOAD_02 ...'; },
+  scan: () => rigResult ? [`rig score ${rigResult.total.toFixed(1)}/10 · grade ${rigResult.grade} · ${rigResult.tier}`,
+    `recommended payload: ${rigResult.recNormal ? 'NORMAL_MODE' : 'LITE_MODE'}`, `FX: ${fxMode.toUpperCase()} (${lowFx ? 'low' : 'high'} effects)`] : 'scan still running ...',
+  cam: a => { const n = parseInt(a, 10); if (n > 0) mainCam.jump((n - 1) % pool().length); else mainCam.trigger(); return `hijacking ${n > 0 ? 'CAM ' + n : 'next feed'} ...`; },
+  fx: a => { if (['auto','high','low'].includes(a)) setFx(a); return `FX = ${fxMode.toUpperCase()} (${lowFx ? 'low' : 'high'} effects active)`; },
+  matrix: () => { rainBoost = 3; setTimeout(() => rainBoost = 1, 4000); return 'entering the matrix ...'; },
+  glitch: () => { bigGlitch(); return 'r e a l i t y   c o r r u p t e d'; },
+  ls: () => 'payload_01.lite   payload_02.normal   homework.txt   secrets/',
+  cat: a => a === 'homework.txt' ? '(0 bytes — it was empty the whole time)' : a ? `cat: ${a}: permission denied (even for root)` : 'cat: what file?',
+  whoami: () => 'root (allegedly)',
+  date: () => new Date().toString(),
+  wanted: () => `current wanted level: ${$('#stars').textContent}`,
+  sudo: () => 'nice try. you are already root.',
+  hack: () => 'already hacking. obviously.',
+  clear: () => { log.innerHTML = ''; return null; },
+  exit: () => 'there is no exit. only payloads.',
+};
+CMDS['1'] = CMDS.lite; CMDS['2'] = CMDS.normal;
+const cmdEl = $('#cmd'), hist = []; let hIdx = 0;
+cmdEl.addEventListener('keydown', e => {
+  if (e.key === 'ArrowUp'){ if (hIdx > 0) cmdEl.value = hist[--hIdx]; e.preventDefault(); return; }
+  if (e.key === 'ArrowDown'){ if (hIdx < hist.length - 1) cmdEl.value = hist[++hIdx]; else { hIdx = hist.length; cmdEl.value = ''; } e.preventDefault(); return; }
+  if (e.key !== 'Enter') return;
+  const raw = cmdEl.value.trim(); cmdEl.value = '';
+  if (!raw) return;
+  hist.push(raw); hIdx = hist.length;
+  out('root@not-os:~# ' + raw, 'dim');
+  const [c, ...args] = raw.toLowerCase().split(/\s+/);
+  const fn = CMDS[c];
+  const res = fn ? fn(args.join(' ')) : `command not found: ${c} — try 'help'`;
+  if (res != null) out(res, fn ? 'out' : 'rd');
+});
+$('#log').parentElement.addEventListener('click', () => { if ($('#prompt').classList.contains('on')) cmdEl.focus(); });
+
+/* ===== ticker ===== */
+const NEWS = [
+  'Unknown hacker hijacks every traffic camera in Los Santos',
+  'Police scanners report "a guy in a hoodie" — suspect still at large',
+  'Vinewood sign briefly reads NOT GTA 5, city officials baffled',
+  'Local man claims his 30 FPS laptop "runs it fine actually"',
+  'Wanted level mysteriously reset to zero across Blaine County',
+  'Del Perro Pier Ferris wheel spins backwards after cyber attack',
+  'Experts recommend LITE_MODE for anyone still using a toaster',
+];
+$('#tk').textContent = (NEWS.join('   ///   ') + '   ///   ').repeat(2);
+
+/* ===== gate ===== */
+/* =====================================================================
+   NOT-OS boot sequence (pure animation — nothing real happens here)
+   ===================================================================== */
+let booting = false, skipping = false, bootT0 = 0;
+const osEl = $('#os'), osOut = $('#osOut');
+const bw = ms => skipping ? Promise.resolve() : sleep(ms);
+const escH = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function osLine(html, cls){
+  const d = document.createElement('div'); if (cls) d.className = cls;
+  d.innerHTML = html; osOut.appendChild(d); osOut.scrollTop = osOut.scrollHeight; return d;
+}
+async function osType(el, text, sp = 30){
+  const s = document.createElement('span'); el.appendChild(s);
+  for (const ch of text){ s.textContent += ch; osOut.scrollTop = osOut.scrollHeight; await bw(sp + Math.random()*sp); }
+}
+async function osProgress(label){
+  const l = osLine(`<span class="cy">[~]</span> ${label} `);
+  const b = document.createElement('span'); b.className = 'ok'; l.appendChild(b);
+  for (let i = 0; i <= 20; i++){ b.textContent = '[' + '█'.repeat(i) + '░'.repeat(20 - i) + '] ' + i*5 + '%'; await bw(14 + rnd(30)); }
+  b.textContent += '  DONE';
+}
+const kt = () => `<span class="dim">[${((performance.now() - bootT0)/1000).toFixed(6).padStart(12)}]</span>`;
+function skipBoot(){ skipping = true; }
+$('#osSkip').addEventListener('click', skipBoot);
+
+async function osBanner(){
+  const bn = $('#osBanner');
+  bn.className = 'on deny';
+  bn.innerHTML = '<div>ACCESS DENIED</div><small>FortiGuard intrusion prevention triggered</small>';
+  await bw(900);
+  for (let i = 0; i < 6; i++){ bn.classList.toggle('deny'); await bw(70); }
+  bn.className = 'on grant';
+  bn.innerHTML = '<div>FORTICLIENT: NEUTRALIZED</div><div>SCHOOL NETWORK: BYPASSED</div><small>notgta5.vercel.app → UNBLOCKED</small>';
+  await bw(1700);
+  bn.className = '';
+}
+
+async function osBoot(){
+  booting = true; skipping = false; bootT0 = performance.now();
+  osOut.innerHTML = ''; osEl.classList.add('on');
+  const cores = navigator.hardwareConcurrency || 4;
+  const gpu = escH(gpuInfo().name);
+  const net = `10.${40 + rnd(20)}`;
+
+  /* --- BIOS POST --- */
+  osLine('<span class="w">NOTBIOS (C) 2026 Los Not-Santos Megatronics, Inc.</span>');
+  osLine('BIOS Version 6.66-HAX · Build 31337 · Secure Boot: <span class="rd">LOL</span>', 'dim');
+  osLine('&nbsp;');
+  osLine(`CPU  : ${cores}-Thread Processor @ OVERCLOCKED`);
+  osLine(`GPU  : ${gpu}`);
+  const mem = osLine('MEM  : 0K');
+  for (let k = 0; k <= 16384; k += 1024){ mem.textContent = `MEM  : ${k}K`; await bw(22); }
+  mem.innerHTML += ' <span class="ok">OK</span>';
+  osLine('&nbsp;');
+  for (const [d, n] of [['SATA0','NOT-SSD 1337GB'], ['USB0 ','PAYLOAD_STICK v5'], ['NET0 ','wlan0 802.11ax']]){
+    const l = osLine(`  ${d}: ${n} `); await bw(150);
+    l.innerHTML += '<span class="dim">..........</span> <span class="ok">DETECTED</span>';
+  }
+  osLine('&nbsp;');
+  osLine('Press DEL to enter setup <span class="dim">(no)</span>');
+  await bw(350);
+  osLine('<span class="am">Booting from USB0: PAYLOAD_STICK ...</span>');
+  await bw(650);
+  osOut.innerHTML = ''; bootT0 = performance.now();
+
+  /* --- kernel --- */
+  const K = [
+    'Linux version 6.6.6-notos (root@los-not-santos) (gcc 13.3.7) #1 SMP PREEMPT_DYNAMIC',
+    'Command line: BOOT_IMAGE=/vmlinuz-notos root=/dev/payload ro quiet stealth=1 wanted_level=0',
+    "x86/fpu: Supporting XSAVE feature 0x001: 'x87 floating point registers'",
+    `smpboot: Allowing ${cores} CPUs, 0 hotplug CPUs`,
+    'Memory: 16384K/16384K available (1337K kernel code, 666K rwdata)',
+    'ACPI: Core revision 20261012',
+    'Calibrating delay loop... 6969.42 BogoMIPS (lpj=1337)',
+    'PCI: Using configuration type 1 for base access',
+    `[drm] Initialized gpu: ${gpu}`,
+    'usb 1-1: new high-speed USB device number 2 using xhci_hcd',
+    'usb 1-1: Product: PAYLOAD_STICK',
+    'EXT4-fs (payload): mounted filesystem with ordered data mode',
+    'random: crng init done (entropy harvested from pure chaos)',
+    'wlan0: authenticate with SCHOOL-STUDENT',
+    'wlan0: associated',
+    'IPv6: ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready',
+    'stealth: kernel fingerprint randomized',
+    'audit: logging disabled (nothing to see here)',
+  ];
+  for (const k of K){ osLine(`${kt()} ${k}`); await bw(18 + rnd(50)); }
+  const SD = [
+    ['ok','  OK  ','Started Journal Service.'],
+    ['ok','  OK  ','Mounted /dev/payload.'],
+    ['ok','  OK  ','Started Matrix Rain Daemon.'],
+    ['ok','  OK  ','Started CCTV Hijack Service.'],
+    ['ok','  OK  ','Started Wanted-Level Suppressor.'],
+    ['am',' WARN ','Teacher proximity sensor not responding.'],
+    ['ok','  OK  ','Reached target Network.'],
+    ['rd','FAILED','Failed to start Homework.service.'],
+    ['ok','  OK  ','Started Hacker Mode Display Manager.'],
+    ['ok','  OK  ','Reached target Multi-User Hacker System.'],
+  ];
+  for (const [c, s, t] of SD){ osLine(`<span class="${c}">[${s}]</span> ${t}`); await bw(40 + rnd(80)); }
+
+  /* --- network recon --- */
+  await bw(250);
+  osLine('&nbsp;');
+  osLine('══════════════ NETWORK RECON ══════════════', 'hdr');
+  const steps = [
+    ['cy', '[*]', 'interface wlan0 up — SSID "SCHOOL-STUDENT" (WPA2-Enterprise)'],
+    ['cy', '[*]', `DHCP lease ${net}.${rnd(255)}.${rnd(255)} · gateway ${net}.0.1 · dns ${net}.0.2`],
+    ['cy', '[*]', 'scanning network perimeter ...'],
+    ['am', '[!]', 'content filter detected: FortiGuard Web Filter'],
+    ['am', '[!]', 'endpoint agent detected: FortiClient (EMS-managed)'],
+    ['am', '[!]', 'SSL deep inspection: ENABLED'],
+    ['rd', '[x]', 'notgta5.vercel.app → BLOCKED <span class="dim">(category: Games)</span>'],
+  ];
+  for (const [c, tag, t] of steps){ osLine(`<span class="${c}">${tag}</span> ${t}`); await bw(170 + rnd(160)); }
+
+  /* --- bypass --- */
+  await bw(300);
+  osLine('&nbsp;');
+  osLine('══════════════ BYPASS SEQUENCE ══════════════', 'hdr');
+  for (const t of ['spoofing MAC address ......', 'rotating DNS-over-HTTPS ...', 'forging FortiClient heartbeat',
+                   'tunneling through 7 proxies', 'sweet-talking the firewall .'])
+    await osProgress(t);
+
+  osLine('&nbsp;');
+  const fw = document.createElement('div'); fw.className = 'fw'; osOut.appendChild(fw);
+  fw.innerHTML = '<div class="fh"><span>RULE</span><span>POLICY</span><span>TARGET</span><span>STATE</span></div>';
+  const rules = [
+    ['#001','WEB-FILTER','category: games','DENY','ALLOW'],
+    ['#002','APP-CTRL','*.vercel.app','DENY','ALLOW'],
+    ['#003','SSL-INSPECT','deep-inspection','ON','OFF'],
+    ['#004','FORTICLIENT','real-time protect','ACTIVE','ASLEEP'],
+    ['#005','TEACHER-VIEW','screen monitor','LIVE','SHOWING DOCS'],
+  ];
+  for (const [id, pol, tgt, from, to] of rules){
+    const row = document.createElement('div'); row.className = 'fr';
+    row.innerHTML = `<span>${id}</span><span>${pol}</span><span>${tgt}</span><span class="st rd">${from}</span>`;
+    fw.appendChild(row); osOut.scrollTop = osOut.scrollHeight;
+    await bw(220);
+    row.classList.add('flip');
+    row.querySelector('.st').className = 'st';
+    row.querySelector('.st').innerHTML = `<s>${from}</s> → <b>${to}</b>`;
+    await bw(260);
+  }
+  await bw(300);
+  await osBanner();
+
+  /* --- login --- */
+  osOut.innerHTML = '';
+  const logo = document.createElement('pre'); logo.className = 'osLogo';
+  logo.textContent =
+`███╗   ██╗ ██████╗ ████████╗      ██████╗ ███████╗
+████╗  ██║██╔═══██╗╚══██╔══╝     ██╔═══██╗██╔════╝
+██╔██╗ ██║██║   ██║   ██║  █████╗██║   ██║███████╗
+██║╚██╗██║██║   ██║   ██║  ╚════╝██║   ██║╚════██║
+██║ ╚████║╚██████╔╝   ██║        ╚██████╔╝███████║
+╚═╝  ╚═══╝ ╚═════╝    ╚═╝         ╚═════╝ ╚══════╝`;
+  osOut.appendChild(logo);
+  osLine('NOT-OS 6.6.6 LTS (GNU/Hacker) tty1', 'dim');
+  osLine('&nbsp;');
+  await osType(osLine('not-os login: '), 'root', 55);
+  await bw(200);
+  await osType(osLine('Password: '), '••••••••••', 45);
+  await bw(300);
+  osLine('Last login: never <span class="dim">(nobody saw you)</span>');
+  osLine('<span class="ok">Welcome, root. The network is yours.</span>');
+  osLine('&nbsp;');
+  await osType(osLine('<span class="ok">root@not-os</span>:<span class="cy">~</span># '), 'startx --mode=hacker', 40);
+  await bw(600);
+
+  osEl.classList.add('off');
+  await sleep(450);
+  osEl.classList.remove('on', 'off');
+  booting = false;
+}
+
+let started = false;
+async function jackIn(){
+  if (started) return; started = true;
+  $('#gate').classList.add('gone');
+  setTimeout(() => { gateCam.paused = true; }, 600);
+  await osBoot();
+  const wrap = $('.wrap');
+  wrap.classList.add('poweron');
+  setTimeout(() => wrap.classList.remove('poweron'), 900);
+  scramble($('.subtitle'));
+  boot(rigScan());
+}
+$('#gate').addEventListener('click', jackIn);
+
+/* ===== logo glitch ===== */
+const lw = $('#logoWrap'), mainLogo = lw.querySelector('pre');
+['r','c'].forEach(k => { const p = mainLogo.cloneNode(true); p.className = 'logo ' + k; p.setAttribute('aria-hidden','true'); lw.insertBefore(p, mainLogo.nextSibling); });
+(function glitchLogo(){
+  lw.classList.add('glitch');
+  setTimeout(() => lw.classList.remove('glitch'), 120 + rnd(200));
+  setTimeout(glitchLogo, 1500 + rnd(3000));
+})();
+
+/* ===== option interactions ===== */
+document.querySelectorAll('.opt').forEach(o => {
+  o.addEventListener('mouseenter', () => { xh.classList.add('hot'); scramble(o.querySelector('h2')); });
+  o.addEventListener('mouseleave', () => { xh.classList.remove('hot'); o.style.transform = ''; });
+  o.addEventListener('mousemove', e => {
+    const b = o.getBoundingClientRect();
+    const x = (e.clientX - b.left)/b.width - .5, y = (e.clientY - b.top)/b.height - .5;
+    o.style.transform = `perspective(800px) rotateY(${x*10}deg) rotateX(${-y*10}deg) translateY(-4px)`;
+  });
+  o.addEventListener('click', e => { e.preventDefault(); launch(o); });
+});
+
+/* ===== launch sequence ===== */
+let launching = false;
+async function launch(o){
+  if (launching || !started || booting) return; launching = true;
+  const lite = o.dataset.key === '1';
+  const color = lite ? 'var(--g)' : 'var(--cyan)';
+  const br = $('#breach'), sl = $('#slices'), count = $('#count'), pbar = $('#pbar');
+  br.style.setProperty('--c', color); sl.style.setProperty('--c', color);
+  $('#breachSub').textContent = lite ? 'PAYLOAD_01 // LITE_MODE' : 'PAYLOAD_02 // NORMAL_MODE';
+  $('#breachText').textContent = 'INJECTING';
+  rainBoost = 3;
+  br.classList.add('on'); sl.classList.add('on');
+  pbar.style.width = '0';
+  const glitchSlices = () => {
+    sl.innerHTML = '';
+    for (let i = 0; i < 6; i++){
+      const s = document.createElement('i');
+      s.style.top = rnd(100) + '%'; s.style.height = (2 + rnd(30)) + 'px';
+      s.style.transform = `translateX(${rnd(40) - 20}px)`;
+      sl.appendChild(s);
+    }
+  };
+  for (let n = 3; n >= 1; n--){
+    count.textContent = n;
+    count.classList.remove('tick'); void count.offsetWidth; count.classList.add('tick');
+    pbar.style.transition = 'width .35s'; pbar.style.width = ((4 - n)/3*100) + '%';
+    document.body.classList.remove('shake'); void document.body.offsetWidth; document.body.classList.add('shake');
+    for (let k = 0; k < 4; k++){ glitchSlices(); await sleep(80); }
+    sl.innerHTML = '';
+    await sleep(120);
+  }
+  count.textContent = '✓';
+  $('#breachText').textContent = 'ACCESS GRANTED';
+  for (let k = 0; k < 5; k++){ glitchSlices(); await sleep(50); }
+  location.href = o.href;
+}
+
+const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+let kIdx = 0;
+addEventListener('keydown', e => {
+  if (e.target && e.target.id === 'cmd') return;
+  if (!started){ jackIn(); return; }
+  kIdx = e.key === KONAMI[kIdx] ? kIdx + 1 : (e.key === KONAMI[0] ? 1 : 0);
+  if (kIdx === KONAMI.length){ kIdx = 0; godMode(); return; }
+  if (booting){ if (['Escape','Enter',' '].includes(e.key)) skipBoot(); return; }
+  const o = document.querySelector(`.opt[data-key="${e.key}"]`);
+  if (o) launch(o);
+});
+
+addEventListener('pageshow', e => {
+  if (!e.persisted) return;
+  launching = false; rainBoost = 1;
+  $('#breach').classList.remove('on'); $('#slices').classList.remove('on'); $('#slices').innerHTML = '';
+});
+</script>
+</body>
+</html>
